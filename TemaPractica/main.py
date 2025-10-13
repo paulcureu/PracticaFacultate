@@ -1,6 +1,12 @@
 import random
 from collections import Counter
 import time
+import sys
+import codecs
+
+# Force stdout to use UTF-8 encoding to prevent errors on Windows
+if sys.stdout.encoding != 'utf-8':
+    sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, 'strict')
 
 def get_guesser_dictionary():
     """Reads all words from the large dictionary file for the guesser."""
@@ -94,6 +100,7 @@ class Guesser:
         self.possible_words = new_possible_words
 
 def main():
+    start_time = time.time()
     guesser_dictionary = get_guesser_dictionary()
     if not guesser_dictionary:
         return
@@ -102,65 +109,82 @@ def main():
     if not secret_word_data:
         return
 
-    secret_word, initial_pattern = random.choice(secret_word_data)
-    display_pattern = initial_pattern
-    attempts = 0
+    total_attempts_overall = 0
+    total_words = len(secret_word_data)
+    words_guessed_count = 0
 
-    guesser = Guesser(guesser_dictionary)
-    guesser.start_new_game(len(secret_word), initial_pattern)
+    print(f"Am găsit {total_words} de cuvinte pentru a le ghici. Începem...")
+    print("-" * 40)
+
+    # Loop over all words
+    for idx, (secret_word, initial_pattern) in enumerate(secret_word_data):
+        
+        display_pattern = initial_pattern
+        attempts = 0
+
+        guesser = Guesser(guesser_dictionary)
+        # The start_new_game in the original code prints a lot. I will keep it.
+        print(f"Jocul {idx + 1}/{total_words} - Cuvânt: {secret_word.upper()}")
+        guesser.start_new_game(len(secret_word), initial_pattern)
+        
+        fallback_alphabet = "aăâbcdefghiîjklmnopqrsștțuvwxyz"
+
+        # Game loop for one word
+        while display_pattern != secret_word:
+            attempts += 1
+            
+            guess = guesser.get_best_guess()
+
+            if guess is None:
+                fallback_guess = None
+                for letter in fallback_alphabet:
+                    if letter not in guesser.guessed_letters:
+                        fallback_guess = letter
+                        break
+                
+                if fallback_guess is None:
+                    print(f"EROARE la cuvântul '{secret_word}': Toate literele au fost încercate, dar cuvântul nu a fost găsit.")
+                    break 
+                
+                guess = fallback_guess
+                guesser.guessed_letters.add(guess)
+
+            # This is the logic from the original file for updating the pattern
+            if guess in secret_word:
+                new_pattern = ""
+                for i, letter in enumerate(secret_word):
+                    if secret_word[i] == guess or display_pattern[i] != '_':
+                        new_pattern += secret_word[i]
+                    else:
+                        new_pattern += "_"
+                display_pattern = new_pattern
+            
+            # This is the call to the (buggy) algorithm
+            guesser.update_knowledge(display_pattern, guess)
+        
+        # After the word is guessed (or failed)
+        if display_pattern == secret_word:
+            words_guessed_count += 1
+            total_attempts_overall += attempts
+            print(f"--> Cuvântul '{secret_word.upper()}' a fost ghicit în {attempts} încercări.")
+            print("-" * 40)
+        else:
+            # This branch is taken if the inner loop breaks on error
+            print(f"--> Cuvântul '{secret_word.upper()}' NU a fost ghicit.")
+            print("-" * 40)
+
+    # Final summary
+    end_time = time.time()
+    duration = end_time - start_time
     
-    fallback_alphabet = "aăâbcdefghiîjklmnopqrsștțuvwxyz"
-
-    print(f"\nCuvântul secret a fost ales. Începe jocul!")
-    time.sleep(1)
-
-    while display_pattern != secret_word:
-        attempts += 1
-        
-        guess = guesser.get_best_guess()
-
-        if guess is None:
-            if len(guesser.possible_words) == 0 and attempts > 1: # Check attempts to avoid printing this on the first go if hints solve it
-                print("\nGhicitorul a epuizat opțiunile logice. Se trece la ghicirea sistematică a literelor rămase...")
-            
-            fallback_guess = None
-            for letter in fallback_alphabet:
-                if letter not in guesser.guessed_letters:
-                    fallback_guess = letter
-                    break
-            
-            if fallback_guess is None:
-                print("Eroare: Toate literele au fost încercate. Jocul se oprește.")
-                break
-            
-            guess = fallback_guess
-            guesser.guessed_letters.add(guess)
-
-        print(f"\n--- Încercarea {attempts} ---")
-        if len(guesser.possible_words) > 0:
-            print(f"Ghicitorul propune litera: '{guess}' (Au mai rămas {len(guesser.possible_words)} cuvinte posibile)")
-        else:
-            print(f"Ghicitorul propune litera (mod sistematic): '{guess}'")
-
-        if guess in secret_word:
-            print(f"Răspuns: DA, litera '{guess}' există în cuvânt.")
-            new_pattern = ""
-            for i, letter in enumerate(secret_word):
-                if secret_word[i] == guess or display_pattern[i] != '_':
-                    new_pattern += secret_word[i]
-                else:
-                    new_pattern += "_"
-            display_pattern = new_pattern
-        else:
-            print(f"Răspuns: NU, litera '{guess}' nu există în cuvânt.")
-        
-        guesser.update_knowledge(display_pattern, guess)
-        
-        print(f"Noul șablon este: {display_pattern}")
-        time.sleep(0.5)
-
-    print("\n--------------------")
-    print(f"Joc terminat! Ghicitorul a găsit cuvântul '{secret_word}' în {attempts} încercări.")
+    print("\n====================")
+    print("Procesare finalizată!")
+    print(f"Timp total: {duration:.2f} secunde")
+    print(f"Cuvinte ghicite: {words_guessed_count}/{total_words}")
+    if words_guessed_count > 0:
+        average_attempts = total_attempts_overall / words_guessed_count
+        print(f"Total încercări (pentru cuvintele ghicite): {total_attempts_overall}")
+        print(f"Medie de încercări pe cuvânt: {average_attempts:.2f}")
 
 
 if __name__ == "__main__":
