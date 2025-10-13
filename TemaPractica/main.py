@@ -112,6 +112,7 @@ def main():
     total_attempts_overall = 0
     total_words = len(secret_word_data)
     words_guessed_count = 0
+    words_failed = []
 
     print(f"Am găsit {total_words} de cuvinte pentru a le ghici. Începem...")
     print("-" * 40)
@@ -170,6 +171,7 @@ def main():
             print("-" * 40)
         else:
             # This branch is taken if the inner loop breaks on error
+            words_failed.append(secret_word)
             print(f"--> Cuvântul '{secret_word.upper()}' NU a fost ghicit.")
             print("-" * 40)
 
@@ -181,6 +183,11 @@ def main():
     print("Procesare finalizată!")
     print(f"Timp total: {duration:.2f} secunde")
     print(f"Cuvinte ghicite: {words_guessed_count}/{total_words}")
+    if words_failed:
+        print(f"Cuvinte care nu au fost ghicite ({len(words_failed)}):")
+        for word in words_failed:
+            print(f"  - {word.upper()}")
+
     if words_guessed_count > 0:
         average_attempts = total_attempts_overall / words_guessed_count
         print(f"Total încercări (pentru cuvintele ghicite): {total_attempts_overall}")
